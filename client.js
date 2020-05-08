@@ -1,19 +1,20 @@
 const io = require("socket.io-client/dist/socket.io.js");
+const path = require("path");
 const host = `${location.hostname}:3009`;
-console.log(host);
-var socket = io(host);
+const socket = io(host);
 
 const { start, renderOnce } = require("@thi.ng/hdom");
 const { serialize } = require("@thi.ng/hiccup");
 
-const isMobile = window.innerWidth < 800
+const isMobile = window.innerWidth < 800;
 
 const wikilinks = require("@kwvanderlinde/markdown-it-wikilinks")({
-  linkPattern: /\[\[([\w\s/!]+)(\|([\w\s/!]+))?\]\]/,
+  // linkPattern: /\[\[([\w\s/!]+)(\|([\w\s/!]+))?\]\]/,
+  linkPattern: /^\[\[(.+?)\]\]/,
   htmlAttributes: { class: "wikilink" },
   generatePageNameFromLabel: (label) => label.replace(/ /g, "_"),
   uriSuffix: "",
-  postProcessLabel: (label) => `[[${label.trim()}]]`
+  postProcessLabel: (label) => `[[${label.trim()}]]`,
 });
 const mdit = require("markdown-it")().use(wikilinks);
 
@@ -26,33 +27,69 @@ function parseMarkdown(md) {
 }
 
 let contents = [];
+let state = {
+  notes: [],
+  searchString: "",
+  selectedNote: {},
+};
 
 function visit(node, meta) {
   // console.log(node)
   if (Array.isArray(node)) {
+    if (node[0] == "hr") {
+      node[1].class += " mt4";
+    }
     if (node[0] == "h1") {
-      node[1].class += ' ma0 mt4'
+      node[1].class += " ma0 mt4";
+    }
+    if (node[0] == "li") {
+      // node[1].class += " no-break";
+    }
+    if (node[0] == "li") {
+      // node[1].class += " no-break";
+    }
+    if (node[0] == "blockquote") {
+      node[1].class += " b--light-gray gray bl bw1 ml0 pl3";
     }
     if (node[0] == "ul") {
       meta = {
         ...meta,
-        listDepth: (meta.listDepth || 0) + 1
-      }
-      node[1].class += " list ma0 pa0 f5";    
-      // if (meta.listDepth >= 2) node[1].class += ' pl35' //pl35 
+        listDepth: (meta.listDepth || 0) + 1,
+      };
+      node[1].class += " list ma0 pa0 f5";
+      // if (meta.listDepth >= 2) node[1].class += ' pl35' //pl35
     }
     if (node[0] == "img") {
-      node[1].src = `iCloud/Documents/Calendar/20200506_attachments/${node[1].src}`
-      node[1].height = '200'
-      node[1].class += ' mv3 db'
+      let folder = state.selectedNote.fileName || "";
+      let ext = path.extname(folder);
+      // folder = folder.replace(new RegExp(ext + "$"), "")
+      folder = path.basename(folder, ext);
+      folder += "_attachments";
+
+      node[1].src = `iCloud/Documents/Calendar/${folder}/${node[1].src}`;
+      node[1].height = "200";
+      node[1].class += " mv3 db";
     }
 
     // nice item separation but text looks weird, needed on mobile
     if (isMobile && node[0] == "li") {
-      node[1].class += " mt2";    
+      node[1].class += " mt2";
     }
     if (node[0] == "a") {
       node[1].class += " green no-underline dim";
+      if (node[1].class && node[1].class.includes("wikilink")) {
+        node[1].onclick = (e) => {
+          e.preventDefault();
+          var noteTitle = e.srcElement.innerText
+            .replace(/^\[\[/, "")
+            .replace(/\]\]$/, "");
+          searchNoteByTitle(noteTitle);
+          // alert(
+          // `You have clicked ${e.srcElement.innerText} the future is near!`
+          // );
+          return false;
+        };
+      }
     }
     node.forEach((child) => visit(child, meta));
   } else {
@@ -61,12 +98,199 @@ function visit(node, meta) {
   return node;
 }
 
+let appWidth = 1000;
+let appOpacity = 0;
+let appMarginTop = 50;
+
+function searchNoteByTitle(noteTitle) {
+  var note = state.notes.find((note) => note.title == noteTitle);
+  if (note) render(note);
+  appWidth = 1000;
+  opacity = 0;
+}
+
+function searchNoteByFileName(fileName) {
+  var note = state.notes.find((note) => note.fileName == fileName);
+  if (note) render(note);
+  appWidth = 1000;
+  opacity = 0;
+}
+
+function render(note) {
+  state.selectedNote = note;
+  let md = note.contents;
+
+  const urlParam = note.fileName
+    .replace("Calendar/", "noteDate=")
+    .replace("Notes/", "noteTitle=")
+    .replace(/\.txt$/, "");
+
+  const noteTitle = note.title;
+  var references = state.notes.reduce((references, note) => {
+    var searchStr = `[[${noteTitle}]]`;
+    if (note.contents.includes(searchStr)) {
+      var idx = note.contents.indexOf(searchStr);
+      var beforeIdx = idx;
+      var afterIdx = idx;
+      while (beforeIdx > 0 && note.contents[beforeIdx] != "\n") {
+        beforeIdx--;
+      }
+      // beforeIdx++;
+      while (
+        afterIdx < note.contents.length - 1 &&
+        note.contents[afterIdx] != "\n"
+      ) {
+        afterIdx++;
+      }
+      // afterIdx--;
+      var quote = note.contents.substring(beforeIdx, afterIdx);
+      references.push({
+        noteTitle: note.title,
+        quote: quote,
+      });
+    }
+    return references;
+  }, []);
+  var unlinkedReferences = state.notes.reduce((references, note) => {
+    var searchStr = `${noteTitle}`;
+    if (note.contents.includes(searchStr) && note.title != noteTitle) {
+      var idx = note.contents.indexOf(searchStr);
+      var beforeIdx = idx;
+      var afterIdx = idx;
+      while (beforeIdx >= 0 && note.contents[beforeIdx] != "\n") {
+        beforeIdx--;
+      }
+      while (
+        afterIdx < note.contents.length - 1 &&
+        note.contents[afterIdx] != "\n"
+      ) {
+        afterIdx++;
+      }
+      if (note.contents[beforeIdx] == '\n') beforeIdx++
+      if (note.contents[afterIdx] == '\n') afterIdx--
+      var quote = note.contents.substring(beforeIdx, afterIdx);
+      references.push({
+        noteTitle: note.title,
+        quote: quote
+      });
+    }
+    return references;
+  }, []);
+
+
+  console.log('references', references)
+  console.log('unlinkedReferences', unlinkedReferences)
+
+  unlinkedReferences = unlinkedReferences.filter((unlinkedRef) => {
+    return !references.find((ref) => ref.noteTitle == unlinkedRef.noteTitle);
+  });
+
+  console.log('unlinkedReferences', unlinkedReferences)
+
+  md =
+    `[${noteTitle}](noteplan://x-callback-url/openNote?${urlParam.replace(
+      / /g,
+      "%20"
+    )})\n` + md;
+
+  const referencesMd = references.map(
+    (ref) => `\n[[${ref.noteTitle}]]\n\n >${ref.quote.trim()}`
+  );
+  const unlinkedReferencesMd = unlinkedReferences.map(
+    (ref) => `\n[[${ref.noteTitle}]]()\n\n >${ref.quote.trim()}`
+  );
+  md += `\n\n\n---\n**REFERENCES**\n${referencesMd.join("\n")}`;
+  // if (unlinkedReferences.length > 0) {
+  md += `\n\n\n---\n**UNLINKED**\n${unlinkedReferencesMd.join("\n")}`;
+  // }
+
+  console.log('md', md.split('\n'))
+  const parsedContents = parseMarkdown(md);
+  contents = visit(parsedContents, {});
+}
+
 const app = () => {
-  const numColumns = isMobile ? 1 : 3
+  var app = document.getElementById("app");
+  if (app) {
+    if (
+      !isMobile &&
+      app.clientHeight + appMarginTop * 1.4 > window.innerHeight
+    ) {
+      appWidth += 500;
+      appOpacity = 0;
+    } else if (
+      !isMobile &&
+      app.clientHeight + appMarginTop * 1.4 > window.innerHeight
+    ) {
+      appWidth += 500;
+      appOpacity = 0;
+    } else {
+      appOpacity = 1;
+    }
+  }
+  const numColumns = isMobile ? 5 : 2;
   // initialization steps
   // ...
   // root component is just a static array
-  return ["div#app", { style: { "column-count": numColumns } }, ...contents];
+  return [
+    "div#app",
+    {
+      class: "overflow-y-hidden",
+      style: {
+        width: isMobile ? "100%" : `${appWidth}px`,
+        opacity: appOpacity,
+      },
+    },
+    [
+      "div#menu",
+      {
+        class: "db fixed top-0 pt3",
+      },
+      [
+        "input",
+        {
+          type: "text",
+          class: "db w5",
+          onchange: (e) => {
+            state.searchString = e.srcElement.value.toLowerCase();
+          },
+        },
+      ],
+      [
+        "select",
+        {
+          class: "db w5",
+          onchange: (e) => {
+            searchNoteByFileName(e.srcElement.value);
+          },
+        },
+        ["option", {}, " "],
+        ...state.notes
+          .filter(
+            (note) =>
+              !state.searchString ||
+              note.title.toLowerCase().includes(state.searchString)
+          )
+          .map((note) => ["option", { value: note.fileName }, note.title]),
+      ],
+    ],
+    [
+      "div#contents",
+      {
+        style: {
+          // "column-count": numColumns,
+          "margin-top": appMarginTop + "px",
+          "column-width": isMobile ? "auto" : "400px",
+          "column-gap": "4rem",
+          // "text-overflow": "ellipsis",
+          // "white-space": "nowrap",
+          // overflow: "hidden",
+          "overflow-wrap": "break-word",
+        },
+      },
+      ...contents,
+    ],
+  ];
 };
 
 // start RAF update & diff loop
@@ -76,18 +300,16 @@ socket.on("connect", () => {
   console.log("connected");
   socket.on("message", (msg) => {
     console.log("msg", msg);
-    if (msg.contents) {
-      let md = msg.contents
-      md = '# Today\n' + md
-      const parsedContents = parseMarkdown(md);
-      // var parsedContents = ['h1', {}, '', 'bla']
-      contents = visit(parsedContents, {});
-      console.log(contents);
-      // contents =
-      // console.log(contents[0], parsedContents)
-
-      //contents = parse(src);
-      // console.log('contents', contents)
+    if (msg.type == "init") {
+      state.notes = msg.notes.map((note) => ({
+        ...note,
+        title: path.basename(note.fileName).replace(/\.txt$/, ""),
+      }));
+      //selectNote("Calendar/20200505.txt")
+      searchNoteByFileName("Notes/Nick Nikolov.txt");
+    }
+    if (msg.type == "update") {
+      // render(msg)
     }
   });
 

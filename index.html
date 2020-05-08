@@ -3,10 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" type="text/css" href="assets/tachyons.min.css"
+  <link rel="stylesheet" type="text/css" href="assets/tachyons.min.css">
   <title>RAM Notes</title>
-</head>
-<body class="avenir lh-copy pa3 pa4-ns">
 <style type="text/css">
 ul {
 }
@@ -24,7 +22,14 @@ li::before {
 .lh-copy-wide {
   line-height: 1.75;
 }
+.no-break {
+  -webkit-column-break-inside: avoid;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
 </style>
-<script src="bundle.js"></script>
+</head>
+<body class="avenir lh-copy pa3 pa4-ns">
+  <script src="bundle.js"></script> 
 </body>
 </html>

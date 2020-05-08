@@ -4,7 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "server": "node server.js",
     "client": "budo --live --open client.js:bundle.js"
+    
   },
   "author": "",
   "license": "ISC",
