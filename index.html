@@ -27,6 +27,12 @@ li::before {
   page-break-inside: avoid;
   break-inside: avoid;
 }
+.wikilink::before {
+  content: "[["
+}
+.wikilink::after {
+  content: "]]"
+}
 </style>
 </head>
 <body class="avenir lh-copy pa3 pa4-ns">

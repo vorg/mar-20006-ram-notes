@@ -2,6 +2,13 @@ const io = require("socket.io-client/dist/socket.io.js");
 const path = require("path");
 const host = `${location.hostname}:3009`;
 const socket = io(host);
+const unified = require("unified");
+const markdownParser = require("remark-parse");
+const md2html = require("remark-rehype");
+const toHtmlStr = require("rehype-stringify");
+const wikiLinkPlugin = require("remark-wiki-link");
+const titlePlugin = require("remark-title");
+const breaksPlugin = require("remark-breaks");
 
 const { start, renderOnce } = require("@thi.ng/hdom");
 const { serialize } = require("@thi.ng/hiccup");
@@ -20,8 +27,39 @@ const mdit = require("markdown-it")().use(wikilinks);
 
 const htmlToHoquet = require("html-to-hoquet");
 
-function parseMarkdown(md) {
-  var parsedHtml = mdit.render(md);
+//NotePlan doesn't insert new line after blockquotes block and they swallow text
+//In NotePlan i use only one > per paragraphs (and don't break them into separat quote lines)
+//therefore adding new line after each > line generates separate quotation block
+//and doesn't swallow content after quotes block
+function fixBlockquotesEnd(md) {
+  var lines = md.split("\n");
+  // var inQuotes = false;
+  for (var i = 0; i < lines.length; i++) {
+    if (lines[i].trim()[0] == ">") lines[i] += "\n";
+    // if (lines[i].trim()[0] == ">") inQuotes = true;
+    // else if (inQuotes) {
+    //   lines[i] = "\n" + lines[i];
+    //   inQuotes = false;
+    // }
+  }
+  return lines.join("\n");
+}
+
+function parseMarkdown(md, title) {
+  md = fixBlockquotesEnd(md);
+  // var parsedHtml = mdit.render(md);
+  var parsedHtml = unified()
+    .use(markdownParser)
+    .use(breaksPlugin)
+    .use(wikiLinkPlugin, {
+      wikiLinkClassName: "wikilink",
+      hrefTemplate: () => '#',
+    })
+    .use(titlePlugin, { title: title })
+    .use(md2html)
+    .use(toHtmlStr)
+    .processSync(md)
+    .toString();
   var content = htmlToHoquet(parsedHtml);
   return content;
 }
@@ -47,6 +85,9 @@ function visit(node, meta) {
     }
     if (node[0] == "li") {
       // node[1].class += " no-break";
+    }
+    if (node[0] == "input" && node[1].type == "checkbox") {
+      node[1].class += " mr2";
     }
     if (node[0] == "blockquote") {
       node[1].class += " b--light-gray gray bl bw1 ml0 pl3";
@@ -76,7 +117,8 @@ function visit(node, meta) {
       node[1].class += " mt2";
     }
     if (node[0] == "a") {
-      node[1].class += " green no-underline dim";
+      const color = node[3] == "Edit" ? "red" : "green";
+      node[1].class += " no-underline dim " + color;
       if (node[1].class && node[1].class.includes("wikilink")) {
         node[1].onclick = (e) => {
           e.preventDefault();
@@ -102,9 +144,20 @@ let appWidth = 1000;
 let appOpacity = 0;
 let appMarginTop = 50;
 
-function searchNoteByTitle(noteTitle) {
+function searchNoteByTitle(noteTitle) {  
   var note = state.notes.find((note) => note.title == noteTitle);
-  if (note) render(note);
+  console.log('searchNoteByTitle', noteTitle, note)
+  if (note) {
+    render(note)
+  }
+  else {
+    note = {
+      fileName: `Notes/${noteTitle}.txt`,
+      title: noteTitle,
+      contents: `# {noteTitle}`
+    }
+    render(note)
+  }
   appWidth = 1000;
   opacity = 0;
 }
@@ -166,32 +219,30 @@ function render(note) {
       ) {
         afterIdx++;
       }
-      if (note.contents[beforeIdx] == '\n') beforeIdx++
-      if (note.contents[afterIdx] == '\n') afterIdx--
+      if (note.contents[beforeIdx] == "\n") beforeIdx++;
+      if (note.contents[afterIdx] == "\n") afterIdx--;
       var quote = note.contents.substring(beforeIdx, afterIdx);
       references.push({
         noteTitle: note.title,
-        quote: quote
+        quote: quote,
       });
     }
     return references;
   }, []);
 
-
-  console.log('references', references)
-  console.log('unlinkedReferences', unlinkedReferences)
+  console.log("references", references);
+  console.log("unlinkedReferences", unlinkedReferences);
 
   unlinkedReferences = unlinkedReferences.filter((unlinkedRef) => {
     return !references.find((ref) => ref.noteTitle == unlinkedRef.noteTitle);
   });
 
-  console.log('unlinkedReferences', unlinkedReferences)
+  console.log("unlinkedReferences", unlinkedReferences);
 
-  md =
-    `[${noteTitle}](noteplan://x-callback-url/openNote?${urlParam.replace(
-      / /g,
-      "%20"
-    )})\n` + md;
+  md += `\n\n---\n[Edit](noteplan://x-callback-url/openNote?${urlParam.replace(
+    / /g,
+    "%20"
+  )})\n`;
 
   const referencesMd = references.map(
     (ref) => `\n[[${ref.noteTitle}]]\n\n >${ref.quote.trim()}`
@@ -204,8 +255,8 @@ function render(note) {
   md += `\n\n\n---\n**UNLINKED**\n${unlinkedReferencesMd.join("\n")}`;
   // }
 
-  console.log('md', md.split('\n'))
-  const parsedContents = parseMarkdown(md);
+  console.log("md", md.split("\n"));
+  const parsedContents = parseMarkdown(md, note.title);
   contents = visit(parsedContents, {});
 }
 
@@ -305,8 +356,8 @@ socket.on("connect", () => {
         ...note,
         title: path.basename(note.fileName).replace(/\.txt$/, ""),
       }));
-      //selectNote("Calendar/20200505.txt")
-      searchNoteByFileName("Notes/Nick Nikolov.txt");
+      searchNoteByFileName("Calendar/20200505.txt");
+      // searchNoteByFileName("Notes/Nick Nikolov.txt");
     }
     if (msg.type == "update") {
       // render(msg)
