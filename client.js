@@ -197,14 +197,12 @@ function render(note) {
       while (beforeIdx > 0 && note.contents[beforeIdx] != "\n") {
         beforeIdx--;
       }
-      // beforeIdx++;
       while (
         afterIdx < note.contents.length - 1 &&
         note.contents[afterIdx] != "\n"
       ) {
         afterIdx++;
       }
-      // afterIdx--;
       var quote = note.contents.substring(beforeIdx, afterIdx);
       references.push({
         noteTitle: note.title,
@@ -228,8 +226,7 @@ function render(note) {
       ) {
         afterIdx++;
       }
-      if (note.contents[beforeIdx] == "\n") beforeIdx++;
-      if (note.contents[afterIdx] == "\n") afterIdx--;
+      // if (note.contents[beforeIdx] == "\n") beforeIdx++;
       var quote = note.contents.substring(beforeIdx, afterIdx);
       references.push({
         noteTitle: note.title,
