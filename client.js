@@ -337,7 +337,7 @@ const app = () => {
         style: {
           // "column-count": numColumns,
           "margin-top": appMarginTop + "px",
-          "column-width": isMobile ? "auto" : "400px",
+          "column-width": isMobile ? "auto" : "450px",
           "column-gap": "4rem",
           // "text-overflow": "ellipsis",
           // "white-space": "nowrap",
