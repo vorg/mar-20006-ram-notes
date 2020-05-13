@@ -10,15 +10,18 @@ let folder =
 
 var clients = [];
 
-var start = Date.now()
-var files = glob.sync(`${folder}/**/*.txt`)
-var notes = files.map((filePath) => ({
-  // filePath: filePath,
-  fileName: path.relative(folder, filePath),
-  contents: fs.readFileSync(filePath, 'utf8')
-}))
-var end = Date.now()
-console.log(`Loaded ${notes.length} notes in ${end - start}ms`)
+function getNotes() {
+  var start = Date.now()
+  var files = glob.sync(`${folder}/**/*.txt`)
+  var notes = files.map((filePath) => ({
+    // filePath: filePath,
+    fileName: path.relative(folder, filePath),
+    contents: fs.readFileSync(filePath, 'utf8')
+  }))
+  var end = Date.now()
+  console.log(`Loaded ${notes.length} notes in ${end - start}ms`)
+  return notes
+}
 
 // One-liner for current directory
 // chokidar.watch(filePath).on("all", (event, filePath) => {
@@ -32,6 +35,7 @@ console.log(`Loaded ${notes.length} notes in ${end - start}ms`)
 // });
 
 io.on("connection", (socket) => {
+  const notes = getNotes()
   clients.push(socket);
   socket.on("message", (msg) => {
     if (msg == "hi") {      
