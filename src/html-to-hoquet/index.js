@@ -9,7 +9,8 @@ function htmlToHoquet(str) {
         onopentag: function(name, attribs){
             //hoquet won't close tag if there is no content
             //so we need empty string inside the tag
-            var node = [name, attribs, ''];
+            //var node = [name, attribs, ''];
+            const node = [name, attribs];
             stack[stack.length-1].push(node);
             stack.push(node);
         },

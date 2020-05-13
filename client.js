@@ -79,6 +79,12 @@ function visit(node, meta) {
     }
     if (node[0] == "h1") {
       node[1].class += " ma0 mt4";
+      node.push(' ')
+      node.push(['a', { href: '#', class: 'normal', onclick: (e) => {
+        e.preventDefault()
+        searchNoteByTitle(node[2])
+        return false
+      }}, '[...]'])
     }
     if (node[0] == "li") {
       // node[1].class += " no-break";
