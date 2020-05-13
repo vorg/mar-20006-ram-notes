@@ -98,6 +98,9 @@ function visit(node, meta) {
     if (node[0] == "blockquote") {
       node[1].class += " b--light-gray gray bl bw1 ml0 pl3";
     }
+    if (node[0] == "code") {
+      node[1].class += ' f6 blue pa1'
+    }
     if (node[0] == "ul") {
       meta = {
         ...meta,
@@ -362,7 +365,9 @@ socket.on("connect", () => {
         ...note,
         title: path.basename(note.fileName).replace(/\.txt$/, ""),
       }));
-      searchNoteByFileName("Calendar/20200505.txt");
+      searchNoteByFileName("Calendar/20200513.txt");
+      // searchNoteByTitle("PEX 20010 ECS PBR");
+      
       // searchNoteByFileName("Notes/Nick Nikolov.txt");
     }
     if (msg.type == "update") {
