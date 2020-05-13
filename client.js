@@ -303,6 +303,35 @@ const app = () => {
         class: "db fixed top-0 pt3",
       },
       [
+        "a",
+        {
+          href: "#",
+          class: "no-underline green dim",
+          onclick: (e) => {
+            e.preventDefault();
+            searchNoteByTitle("!Root");
+            return false;
+          },
+        },
+        "!Root",
+      ],
+      " ",
+      [
+        "a",
+        {
+          href: "#",
+          class: "no-underline green dim",
+          onclick: (e) => {
+            e.preventDefault();
+            searchNoteByTitle(
+              new Date().toISOString().substr(0, 10).replace(/-/g, "")
+            );
+            return false;
+          },
+        },
+        "Today",
+      ],
+      [
         "input",
         {
           type: "text",
