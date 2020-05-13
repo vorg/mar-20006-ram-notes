@@ -53,7 +53,7 @@ function parseMarkdown(md, title) {
     .use(breaksPlugin)
     .use(wikiLinkPlugin, {
       wikiLinkClassName: "wikilink",
-      hrefTemplate: () => '#',
+      hrefTemplate: () => "#",
     })
     .use(titlePlugin, { title: title })
     .use(md2html)
@@ -79,12 +79,20 @@ function visit(node, meta) {
     }
     if (node[0] == "h1") {
       node[1].class += " ma0 mt4";
-      node.push(' ')
-      node.push(['a', { href: '#', class: 'normal', onclick: (e) => {
-        e.preventDefault()
-        searchNoteByTitle(node[2])
-        return false
-      }}, '[...]'])
+      node.push(" ");
+      node.push([
+        "a",
+        {
+          href: "#",
+          class: "normal",
+          onclick: (e) => {
+            e.preventDefault();
+            searchNoteByTitle(node[2]);
+            return false;
+          },
+        },
+        "[...]",
+      ]);
     }
     if (node[0] == "li") {
       // node[1].class += " no-break";
@@ -99,7 +107,7 @@ function visit(node, meta) {
       node[1].class += " b--light-gray gray bl bw1 ml0 pl3";
     }
     if (node[0] == "code") {
-      node[1].class += ' f6 blue pa1'
+      node[1].class += " f6 blue pa1";
     }
     if (node[0] == "ul") {
       meta = {
@@ -152,19 +160,18 @@ let appWidth = 1000;
 let appOpacity = 0;
 let appMarginTop = 50;
 
-function searchNoteByTitle(noteTitle) {  
+function searchNoteByTitle(noteTitle) {
   var note = state.notes.find((note) => note.title == noteTitle);
-  console.log('searchNoteByTitle', noteTitle, note)
+  console.log("searchNoteByTitle", noteTitle, note);
   if (note) {
-    render(note)
-  }
-  else {
+    render(note);
+  } else {
     note = {
       fileName: `Notes/${noteTitle}.txt`,
       title: noteTitle,
-      contents: `# {noteTitle}`
-    }
-    render(note)
+      contents: `# {noteTitle}`,
+    };
+    render(note);
   }
   appWidth = 1000;
   opacity = 0;
@@ -187,50 +194,60 @@ function render(note) {
     .replace(/\.txt$/, "");
 
   const noteTitle = note.title;
+
   var references = state.notes.reduce((references, note) => {
-    var searchStr = `[[${noteTitle}]]`;
-    if (note.contents.includes(searchStr)) {
-      var idx = note.contents.indexOf(searchStr);
-      var beforeIdx = idx;
-      var afterIdx = idx;
-      while (beforeIdx > 0 && note.contents[beforeIdx] != "\n") {
-        beforeIdx--;
+    var searchStr = `[[${noteTitle}]]`.toLowerCase();
+    if (note.contents.toLowerCase().includes(searchStr)) {
+      var idx = note.contents.toLowerCase().indexOf(searchStr);
+      while (idx > -1) {    
+        var beforeIdx = idx;
+        var afterIdx = idx;
+        while (beforeIdx > 0 && note.contents[beforeIdx] != "\n") {
+          beforeIdx--;
+        }
+        while (
+          afterIdx < note.contents.length - 1 &&
+          note.contents[afterIdx] != "\n"
+        ) {
+          afterIdx++;
+        }
+        var quote = note.contents.substring(beforeIdx, afterIdx);
+        references.push({
+          idx: idx + 2,
+          noteTitle: note.title,
+          quote: quote,
+        });
+        idx = note.contents.indexOf(searchStr, idx + 1);
       }
-      while (
-        afterIdx < note.contents.length - 1 &&
-        note.contents[afterIdx] != "\n"
-      ) {
-        afterIdx++;
-      }
-      var quote = note.contents.substring(beforeIdx, afterIdx);
-      references.push({
-        noteTitle: note.title,
-        quote: quote,
-      });
     }
     return references;
   }, []);
+
   var unlinkedReferences = state.notes.reduce((references, note) => {
-    var searchStr = `${noteTitle}`;
-    if (note.contents.includes(searchStr) && note.title != noteTitle) {
-      var idx = note.contents.indexOf(searchStr);
-      var beforeIdx = idx;
-      var afterIdx = idx;
-      while (beforeIdx >= 0 && note.contents[beforeIdx] != "\n") {
-        beforeIdx--;
+    var searchStr = `${noteTitle}`.toLowerCase();    
+    if (note.contents.toLowerCase().includes(searchStr) && note.title != noteTitle) {
+      var idx = note.contents.toLowerCase().indexOf(searchStr);
+      while (idx > -1) {    
+        var beforeIdx = idx;
+        var afterIdx = idx;
+        while (beforeIdx >= 0 && note.contents[beforeIdx] != "\n") {
+          beforeIdx--;
+        }
+        while (
+          afterIdx < note.contents.length - 1 &&
+          note.contents[afterIdx] != "\n"
+        ) {
+          afterIdx++;
+        }
+        // if (note.contents[beforeIdx] == "\n") beforeIdx++;
+        var quote = note.contents.substring(beforeIdx, afterIdx);
+        references.push({
+          idx: idx,
+          noteTitle: note.title,
+          quote: quote,
+        });
+        idx = note.contents.indexOf(searchStr, idx + 1);
       }
-      while (
-        afterIdx < note.contents.length - 1 &&
-        note.contents[afterIdx] != "\n"
-      ) {
-        afterIdx++;
-      }
-      // if (note.contents[beforeIdx] == "\n") beforeIdx++;
-      var quote = note.contents.substring(beforeIdx, afterIdx);
-      references.push({
-        noteTitle: note.title,
-        quote: quote,
-      });
     }
     return references;
   }, []);
@@ -238,8 +255,9 @@ function render(note) {
   console.log("references", references);
   console.log("unlinkedReferences", unlinkedReferences);
 
+  // double check if it's not the same reference
   unlinkedReferences = unlinkedReferences.filter((unlinkedRef) => {
-    return !references.find((ref) => ref.noteTitle == unlinkedRef.noteTitle);
+    return !references.find((ref) => ref.noteTitle == unlinkedRef.noteTitle && ref.idx == unlinkedRef.idx);
   });
 
   console.log("unlinkedReferences", unlinkedReferences);
@@ -390,12 +408,15 @@ socket.on("connect", () => {
         ...note,
         title: path.basename(note.fileName).replace(/\.txt$/, ""),
       }));
-      searchNoteByFileName("Calendar/20200513.txt");
+      // searchNoteByFileName("Calendar/20200513.txt");
       // searchNoteByTitle("PEX 20010 ECS PBR");
-      
+      // searchNoteByTitle("MAR 20006 RAM Notes");
+      searchNoteByTitle("Var Strategy");
+
       // searchNoteByFileName("Notes/Nick Nikolov.txt");
     }
     if (msg.type == "update") {
+      console.log("update message", msg);
       // render(msg)
     }
   });
