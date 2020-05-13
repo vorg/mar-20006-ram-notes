@@ -117,7 +117,6 @@ function visit(node, meta) {
       folder += "_attachments";
 
       node[1].src = `iCloud/Documents/Calendar/${folder}/${node[1].src}`;
-      node[1].height = "200";
       node[1].class += " mv3 db";
     }
 
