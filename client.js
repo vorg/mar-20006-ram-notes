@@ -208,42 +208,28 @@ function render(note) {
   const noteTitle = note.title;
 
   var references = state.notes.reduce((references, note) => {
-    var searchStr = `[[${noteTitle}]]`.toLowerCase();
-    if (note.contents.toLowerCase().includes(searchStr)) {
-      var idx = note.contents.toLowerCase().indexOf(searchStr);
+    const searchStr = `${noteTitle}`.toLowerCase();
+
+    // skip topic file itself
+    if (note.title.toLowerCase() == searchStr) {
+      return references
+    }
+
+    const contents = note.contents.toLowerCase()
+    
+    if (contents.includes(searchStr)) {
+      let idx = contents.indexOf(searchStr);
       while (idx > -1) {    
+        // expand selection to whole paragraph
         var beforeIdx = idx;
         var afterIdx = idx;
+        var parentTitle = ''
+        var linked = contents[idx - 1] == '[' && contents[idx - 2] == '['
         while (beforeIdx > 0 && note.contents[beforeIdx] != "\n") {
           beforeIdx--;
         }
-        while (
-          afterIdx < note.contents.length - 1 &&
-          note.contents[afterIdx] != "\n"
-        ) {
-          afterIdx++;
-        }
-        var quote = note.contents.substring(beforeIdx, afterIdx);
-        references.push({
-          idx: idx + 2,
-          noteTitle: note.title,
-          quote: quote,
-        });
-        idx = note.contents.indexOf(searchStr, idx + 1);
-      }
-    }
-    return references;
-  }, []);
-
-  var unlinkedReferences = state.notes.reduce((references, note) => {
-    var searchStr = `${noteTitle}`.toLowerCase();    
-    if (note.contents.toLowerCase().includes(searchStr) && note.title != noteTitle) {
-      var idx = note.contents.toLowerCase().indexOf(searchStr);
-      while (idx > -1) {    
-        var beforeIdx = idx;
-        var afterIdx = idx;
-        while (beforeIdx >= 0 && note.contents[beforeIdx] != "\n") {
-          beforeIdx--;
+        if (note.contents[beforeIdx] == "\n") {
+          beforeIdx++
         }
         while (
           afterIdx < note.contents.length - 1 &&
@@ -251,12 +237,35 @@ function render(note) {
         ) {
           afterIdx++;
         }
-        // if (note.contents[beforeIdx] == "\n") beforeIdx++;
+        if (note.contents[afterIdx] == "\n") {
+          afterIdx++
+        }
+        // it's a header section, include all contents until next paragraph
+        if (note.contents[beforeIdx] == "#") {
+          linked = true
+          parentTitle = note.contents.substring(beforeIdx, afterIdx)
+          beforeIdx = afterIdx
+          afterIdx = note.contents.indexOf('\n#', afterIdx)          
+          if (afterIdx == -1) afterIdx = note.contents.length - 1
+          
+        } else {
+          var parentTitleStart = note.contents.lastIndexOf('\n#', beforeIdx) //TODOwhat if file starts with #?
+          if (parentTitleStart == -1) {
+            if (note.contents[0] == '#') parentTitleStart = 0
+          } else {
+            parentTitleStart++ //skip \n
+          }
+          if (parentTitleStart != -1) {
+            var parentTitleEnd = note.contents.indexOf('\n', parentTitleStart)
+            parentTitle =  note.contents.substring(parentTitleStart, parentTitleEnd)
+          }
+        }
         var quote = note.contents.substring(beforeIdx, afterIdx);
-        references.push({
-          idx: idx,
+        references.push({          
           noteTitle: note.title,
-          quote: quote,
+          linked,
+          quote,
+          parentTitle
         });
         idx = note.contents.indexOf(searchStr, idx + 1);
       }
@@ -265,32 +274,24 @@ function render(note) {
   }, []);
 
   console.log("references", references);
-  console.log("unlinkedReferences", unlinkedReferences);
-
-  // double check if it's not the same reference
-  unlinkedReferences = unlinkedReferences.filter((unlinkedRef) => {
-    return !references.find((ref) => ref.noteTitle == unlinkedRef.noteTitle && ref.idx == unlinkedRef.idx);
-  });
-
-  console.log("unlinkedReferences", unlinkedReferences);
 
   md += `\n\n---\n[Edit](noteplan://x-callback-url/openNote?${urlParam.replace(
     / /g,
     "%20"
   )})\n`;
 
-  const referencesMd = references.map(
-    (ref) => `\n[[${ref.noteTitle}]]\n\n >${ref.quote.trim()}`
+  const referencesMd = references.filter((r) => r.linked).map(
+    (ref) => `\n## [[${ref.noteTitle}]] > ${ref.parentTitle}\n\n${ref.quote.trim()}`
   );
-  const unlinkedReferencesMd = unlinkedReferences.map(
-    (ref) => `\n[[${ref.noteTitle}]]()\n\n >${ref.quote.trim()}`
+  const unlinkedReferencesMd = references.filter((r) => !r.linked).map(
+    (ref) => `\n## [[${ref.noteTitle}]] > ${ref.parentTitle}\n\n${ref.quote.trim()}`
   );
   md += `\n\n\n---\n**REFERENCES**\n${referencesMd.join("\n")}`;
   // if (unlinkedReferences.length > 0) {
   md += `\n\n\n---\n**UNLINKED**\n${unlinkedReferencesMd.join("\n")}`;
   // }
 
-  console.log("md", md.split("\n"));
+  console.log("md", md.split("\n"));  
   const parsedContents = parseMarkdown(md, note.title);
   contents = visit(parsedContents, {});
 }

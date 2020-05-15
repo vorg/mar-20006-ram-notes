@@ -13,6 +13,7 @@
     "@kwvanderlinde/markdown-it-wikilinks": "^1.0.2",
     "@thi.ng/hdom": "^8.0.23",
     "@thi.ng/hiccup-markdown": "^1.2.10",
+    "budo": "^11.6.3",
     "chokidar": "^3.4.0",
     "glob": "^7.1.6",
     "html-to-hoquet": "file:src/html-to-hoquet",
