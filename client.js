@@ -45,8 +45,18 @@ function fixBlockquotesEnd(md) {
   return lines.join("\n");
 }
 
-function parseMarkdown(md, title) {
-  md = fixBlockquotesEnd(md);
+function fixImagePaths(md, note) {
+  let folder = note.fileName || "";
+  let ext = path.extname(folder);
+  folder = path.basename(folder, ext).replace(/ /g, '%20');
+  folder += "_attachments";
+
+  const parentFolder = folder[0] == '2' ? 'Calendar' : 'Notes'
+  const assetsFolder = `${parentFolder}/${folder}/`
+  return md.replace(/!\[[^\]]*\]\(([^\)]+)\)/g, `![](${assetsFolder}$1)`)
+}
+
+function parseMarkdown(md, title) {  
   // var parsedHtml = mdit.render(md);
   var parsedHtml = unified()
     .use(markdownParser)
@@ -118,14 +128,16 @@ function visit(node, meta) {
       // if (meta.listDepth >= 2) node[1].class += ' pl35' //pl35
     }
     if (node[0] == "img") {
-      let folder = state.selectedNote.fileName || "";
-      let ext = path.extname(folder);
-      // folder = folder.replace(new RegExp(ext + "$"), "")
-      folder = path.basename(folder, ext);
-      folder += "_attachments";
+      const img = ['img', { ...node[1] }]
+      node[0] = 'div'
+      node[1] = { class: 'flex x-justify-around' }
+      node[2] = img
+      // img[1].src = `iCloud/Documents/${parentFolder}/${folder}/${img[1].src}`;
+      img[1].src = `iCloud/Documents/${img[1].src}`;
+      img[1].height = '100px'
+      img[1].class += " mv3 db";
 
-      node[1].src = `iCloud/Documents/Calendar/${folder}/${node[1].src}`;
-      node[1].class += " mv3 db";
+      return //prevent going deeper
     }
 
     // nice item separation but text looks weird, needed on mobile
@@ -407,11 +419,17 @@ socket.on("connect", () => {
       state.notes = msg.notes.map((note) => ({
         ...note,
         title: path.basename(note.fileName).replace(/\.txt$/, ""),
-      }));
-      // searchNoteByFileName("Calendar/20200513.txt");
+      })).map((note) => {
+        let md = note.contents
+        md = fixBlockquotesEnd(md);
+        md = fixImagePaths(md, note);
+        note.contents = md
+        return note
+      })
+      searchNoteByFileName("Calendar/20200515.txt");
       // searchNoteByTitle("PEX 20010 ECS PBR");
       // searchNoteByTitle("MAR 20006 RAM Notes");
-      searchNoteByTitle("Var Strategy");
+      // searchNoteByTitle("Var Strategy");
 
       // searchNoteByFileName("Notes/Nick Nikolov.txt");
     }
